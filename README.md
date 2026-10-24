@@ -317,9 +317,18 @@ Open `docs/index.html`. Docstrings follow the Google style.
 
 ## 11. AI use
 
-Claude (Anthropic) was used substantially in this project. See
-[`AI_USE.md`](AI_USE.md) for what it produced and the issues found while
-checking its output. The reflection on AI use is in the written report.
+This project was developed with substantial assistance from Claude (Anthropic).
+I defined the problem and selected the dataset, wrote the initial data
+exploration (`archive/stage1_exploration_original.py`), and used Claude to
+audit the data, propose candidate methods and a validation design, and
+generate the implementation, tests and documentation.
+
+I was responsible for checking the work: running the pipeline and test suite
+on my own machine, reviewing the code and results, and deciding what to keep
+in the final submission. Claude's output contained errors that were found
+and corrected during development (see [`AI_USE.md`](AI_USE.md)). The full
+reflection on how AI was used, how it was verified and what I learned is in
+the written report.
 
 ## 12. References
 
