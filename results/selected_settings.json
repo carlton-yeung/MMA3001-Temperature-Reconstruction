@@ -1,0 +1,44 @@
+{
+  "k_daily": 2,
+  "k_weekly": 2,
+  "window_days": 7.0,
+  "switch_len": 6,
+  "final_method": "hybrid",
+  "selection_scores": [
+    {
+      "method": "boosted",
+      "mean_MAE": 0.8319,
+      "seconds": 0.8377
+    },
+    {
+      "method": "cubic_spline",
+      "mean_MAE": 2.4507,
+      "seconds": 0.0031
+    },
+    {
+      "method": "ffill",
+      "mean_MAE": 1.5687,
+      "seconds": 0.0007
+    },
+    {
+      "method": "harmonic",
+      "mean_MAE": 0.7401,
+      "seconds": 0.793
+    },
+    {
+      "method": "hybrid",
+      "mean_MAE": 0.7402,
+      "seconds": 0.0221
+    },
+    {
+      "method": "linear",
+      "mean_MAE": 1.1118,
+      "seconds": 0.0006
+    },
+    {
+      "method": "pchip",
+      "mean_MAE": 1.0979,
+      "seconds": 0.0023
+    }
+  ]
+}
