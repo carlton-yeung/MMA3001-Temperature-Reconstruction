@@ -1,43 +1,43 @@
 === harmonic (all gaps), primary sensor ===
-         85590 function calls (85462 primitive calls) in 0.628 seconds
+         84057 function calls (83935 primitive calls) in 1.504 seconds
 
    Ordered by: cumulative time
-   List reduced from 309 to 12 due to restriction <12>
+   List reduced from 305 to 12 due to restriction <12>
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-        1    0.000    0.000    0.627    0.627 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/experiments.py:125(<lambda>)
-        1    0.109    0.109    0.627    0.627 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:245(fill_harmonic)
-     1390    0.007    0.000    0.391    0.000 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:212(solve_least_squares)
-     1390    0.337    0.000    0.384    0.000 /usr/local/lib/python3.13/site-packages/numpy/linalg/_linalg.py:2417(lstsq)
-     1390    0.039    0.000    0.045    0.000 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:233(_bridge)
-     1390    0.002    0.000    0.033    0.000 {method 'mean' of 'numpy.ndarray' objects}
-     1390    0.011    0.000    0.031    0.000 /usr/local/lib/python3.13/site-packages/numpy/_core/_methods.py:115(_mean)
-     2788    0.020    0.000    0.020    0.000 {method 'reduce' of 'numpy.ufunc' objects}
-     1392    0.002    0.000    0.017    0.000 {method 'sum' of 'numpy.ndarray' objects}
-        1    0.005    0.005    0.015    0.015 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:183(harmonic_design)
-     1392    0.001    0.000    0.014    0.000 /usr/local/lib/python3.13/site-packages/numpy/_core/_methods.py:47(_sum)
-     1397    0.013    0.000    0.013    0.000 {method 'copy' of 'numpy.ndarray' objects}
+        1    0.000    0.000    1.504    1.504 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\experiments.py:125(<lambda>)
+        1    0.216    0.216    1.503    1.503 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:245(fill_harmonic)
+     1390    0.013    0.000    1.016    0.001 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:212(solve_least_squares)
+     1390    0.912    0.001    1.001    0.001 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\numpy\linalg\_linalg.py:2394(lstsq)
+     1390    0.076    0.000    0.089    0.000 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:233(_bridge)
+     1390    0.004    0.000    0.077    0.000 {method 'mean' of 'numpy.ndarray' objects}
+     1390    0.024    0.000    0.073    0.000 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\numpy\_core\_methods.py:118(_mean)
+     2788    0.051    0.000    0.051    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+     1392    0.004    0.000    0.037    0.000 {method 'sum' of 'numpy.ndarray' objects}
+     1392    0.002    0.000    0.033    0.000 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\numpy\_core\_methods.py:50(_sum)
+     1394    0.033    0.000    0.033    0.000 {method 'copy' of 'numpy.ndarray' objects}
+        1    0.007    0.007    0.027    0.027 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:183(harmonic_design)
 
 
 
 === hybrid, primary sensor ===
-         195 function calls in 0.001 seconds
+         119 function calls in 0.003 seconds
 
    Ordered by: cumulative time
-   List reduced from 83 to 12 due to restriction <12>
+   List reduced from 56 to 12 due to restriction <12>
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-        1    0.000    0.000    0.001    0.001 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/experiments.py:128(<lambda>)
-        1    0.000    0.000    0.001    0.001 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:337(fill_hybrid)
-        1    0.000    0.000    0.001    0.001 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:245(fill_harmonic)
-        2    0.000    0.000    0.001    0.000 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:45(_split)
-        1    0.000    0.000    0.001    0.001 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:75(fill_linear)
-        2    0.000    0.000    0.000    0.000 /usr/local/lib/python3.13/site-packages/pandas/core/frame.py:4337(__getitem__)
-        2    0.000    0.000    0.000    0.000 /usr/local/lib/python3.13/site-packages/pandas/core/frame.py:4968(_get_item)
-        2    0.000    0.000    0.000    0.000 /usr/local/lib/python3.13/site-packages/pandas/core/frame.py:4292(_ixs)
-        1    0.000    0.000    0.000    0.000 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/data.py:252(gap_runs)
-        2    0.000    0.000    0.000    0.000 /usr/local/lib/python3.13/site-packages/pandas/core/base.py:567(to_numpy)
-        3    0.000    0.000    0.000    0.000 {method 'copy' of 'numpy.ndarray' objects}
-        2    0.000    0.000    0.000    0.000 /usr/local/lib/python3.13/site-packages/pandas/core/frame.py:4956(_box_col_values)
+        1    0.000    0.000    0.003    0.003 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\experiments.py:128(<lambda>)
+        1    0.000    0.000    0.003    0.003 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:337(fill_hybrid)
+        1    0.000    0.000    0.003    0.003 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:245(fill_harmonic)
+        1    0.000    0.000    0.001    0.001 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:75(fill_linear)
+        2    0.000    0.000    0.001    0.001 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:45(_split)
+        1    0.000    0.000    0.001    0.001 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\numpy\lib\_function_base_impl.py:1505(interp)
+        1    0.000    0.000    0.001    0.001 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\data.py:252(gap_runs)
+        1    0.000    0.000    0.000    0.000 {built-in method numpy._core._multiarray_umath.interp}
+        2    0.000    0.000    0.000    0.000 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\pandas\core\base.py:545(to_numpy)
+        2    0.000    0.000    0.000    0.000 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\pandas\core\frame.py:4073(__getitem__)
+        3    0.000    0.000    0.000    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+        2    0.000    0.000    0.000    0.000 {method 'sum' of 'numpy.ndarray' objects}
 
 

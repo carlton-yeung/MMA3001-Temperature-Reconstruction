@@ -5,7 +5,7 @@ seed = 2026, quick = False.
 
 ## Data
 - CSV rows: 179447.
-- Primary 6012002000869 (B60 G.38 Compactus_upper): 13800 readings,
+- Primary 6012002000869 (location unknown): 13800 readings,
   15191 slots, 1391 missing (9.2%), 2024-02-29 17:04:56+11:00 to 2024-06-14 03:45:44+10:00.
 - Secondary 6012002000326 (location unknown): 29038 readings,
   32707 slots, 3669 missing (11.2%).
@@ -107,50 +107,50 @@ Up to 2 h: fully observed gaps; above 2 h: partially observed gaps.
 ## Performance (filling all real gaps of the primary sensor)
 | method | seconds | peak_MB | flops | MFLOP_per_s | gaps_fitted |
 |---|---|---|---|---|---|
-| ffill | 0.0004064 | 0.5204 | nan | nan | nan |
-| linear | 0.0004159 | 0.7454 | 6955 | 16.72 | 0 |
-| yesterday | 0.0007801 | 1.278 | nan | nan | nan |
-| cubic_spline | 0.001526 | 2.482 | 1.243e+05 | 81.45 | 0 |
-| pchip | 0.001375 | 1.93 | 2.899e+05 | 210.8 | 0 |
-| harmonic | 0.5595 | 4.057 | 5.512e+08 | 985.1 | 1390 |
-| hybrid | 0.0008335 | 1.004 | 0 | nan | 0 |
+| ffill | 0.0006948 | 0.503 | nan | nan | nan |
+| linear | 0.0003209 | 0.7454 | 6955 | 21.67 | 0 |
+| yesterday | 0.001184 | 1.278 | nan | nan | nan |
+| cubic_spline | 0.001512 | 2.48 | 1.243e+05 | 82.23 | 0 |
+| pchip | 0.00128 | 1.928 | 2.899e+05 | 226.6 | 0 |
+| harmonic | 1.18 | 4.303 | 5.512e+08 | 466.9 | 1390 |
+| hybrid | 0.001304 | 1.004 | 0 | nan | 0 |
 
 Optimisation of the harmonic method (accuracy check: max difference from the naive version):
 
 | version | seconds | speedup | peak_MB | max_diff_C | sensor |
 |---|---|---|---|---|---|
-| 1 naive (basis rebuilt per gap) | 3.89 | 1 | 1.004 | 0 | 6012002000869 |
-| 2 basis built once | 0.4912 | 7.921 | 4.057 | 1.421e-14 | 6012002000869 |
-| 3 + skip short gaps (hybrid) | 0.0005463 | 7121 | 1.004 | 0.0228 | 6012002000869 |
-| 1 naive (basis rebuilt per gap) | 6.141 | 1 | 2.16 | 0 | 6012002000326 |
-| 2 basis built once | 0.832 | 7.381 | 8.712 | 3.553e-14 | 6012002000326 |
-| 3 + skip short gaps (hybrid) | 0.03957 | 155.2 | 8.712 | 0.1013 | 6012002000326 |
+| 1 naive (basis rebuilt per gap) | 2.897 | 1 | 1.464 | 0 | 6012002000869 |
+| 2 basis built once | 0.5254 | 5.514 | 4.303 | 1.421e-14 | 6012002000869 |
+| 3 + skip short gaps (hybrid) | 0.0003614 | 8016 | 1.004 | 0.0228 | 6012002000869 |
+| 1 naive (basis rebuilt per gap) | 8.78 | 1 | 2.16 | 0 | 6012002000326 |
+| 2 basis built once | 1.245 | 7.054 | 9.238 | 3.553e-14 | 6012002000326 |
+| 3 + skip short gaps (hybrid) | 0.0389 | 225.7 | 9.237 | 0.1013 | 6012002000326 |
 
-Runtime vs number of gaps at fixed length (log-log slope): harmonic 0.97,
-hybrid -0.08.
+Runtime vs number of gaps at fixed length (log-log slope): harmonic 0.77,
+hybrid 0.01.
 
-Loop vs vectorised linear interpolation on 1e6 slots: 0.176 s vs 0.0253 s
-(speed-up 7x, identical output: True).
+Loop vs vectorised linear interpolation on 1e6 slots: 0.343 s vs 0.0579 s
+(speed-up 6x, identical output: True).
 
 Scaling exponents (slope of log time vs log n):
 
 | method | exponent | n_range |
 |---|---|---|
-| linear | 1.013 | 64000-1024000 |
-| yesterday | 1.159 | 64000-1024000 |
-| cubic_spline | 1.026 | 64000-1024000 |
-| pchip | 0.997 | 64000-1024000 |
-| hybrid | 1.001 | 64000-1024000 |
-| harmonic | 1.012 | 16000-256000 |
+| linear | 0.927 | 64000-1024000 |
+| yesterday | 1.189 | 64000-1024000 |
+| cubic_spline | 1.017 | 64000-1024000 |
+| pchip | 1.110 | 64000-1024000 |
+| hybrid | 1.013 | 64000-1024000 |
+| harmonic | 0.884 | 16000-256000 |
 
 Least-squares solver comparison:
 
 | trend_centred | solver | cond_A | cond_AtA | seconds | max_coef_diff_vs_svd | rows_m | params_p |
 |---|---|---|---|---|---|---|---|
-| False | lstsq | 2.42e+04 | 5.83e+08 | 0.000181 | 0 | 672 | 14 |
-| False | normal | 2.42e+04 | 5.83e+08 | 3.58e-05 | 1.25e-10 | 672 | 14 |
-| True | lstsq | 2.52 | 6.37 | 0.000181 | 0 | 672 | 14 |
-| True | normal | 2.52 | 6.37 | 3.55e-05 | 2.84e-14 | 672 | 14 |
+| False | lstsq | 2.42e+04 | 5.83e+08 | 0.000426 | 0 | 672 | 14 |
+| False | normal | 2.42e+04 | 5.83e+08 | 4.16e-05 | 7.12e-11 | 672 | 14 |
+| True | lstsq | 2.52 | 6.37 | 0.000444 | 0 | 672 | 14 |
+| True | normal | 2.52 | 6.37 | 9.11e-05 | 1.42e-14 | 672 | 14 |
 
 ## Reconstruction of real gaps (deployed method: hybrid)
 | sensor | filled_slots | gaps | longest_gap_h | slots_beyond_validated_range |

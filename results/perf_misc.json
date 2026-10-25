@@ -1,12 +1,12 @@
 {
   "vectorisation": {
-    "loop_s": 0.17562300999998115,
-    "vectorised_s": 0.025330675000077463,
-    "speedup": 6.933214768238276,
+    "loop_s": 0.3432446999941021,
+    "vectorised_s": 0.05786419997457415,
+    "speedup": 5.931900901506039,
     "identical_output": true
   },
   "gap_count_slopes": {
-    "harmonic": 0.9659252876317832,
-    "hybrid": -0.08202959981270806
+    "harmonic": 0.771812078823095,
+    "hybrid": 0.010975030523512933
   }
 }
