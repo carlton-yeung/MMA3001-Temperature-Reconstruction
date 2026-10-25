@@ -2,7 +2,7 @@
 
 Examples::
 
-    python main.py              # run every stage (about 10-15 minutes)
+    python main.py              # run every stage (about 10 minutes)
     python main.py --quick      # fast smoke run (about 2 minutes)
     python main.py audit        # data audit and overview figures only
     python main.py tune validate reconstruct
@@ -41,13 +41,13 @@ def main(argv=None) -> None:
     params = load_params(cfg)
     results = {}
     if "tune" in stages:
-        print("Stage: tune (validation period only)")
+        print("Stage: tune (development period only)")
         params = tune(cfg, ctx)
-        print(f"  selected method: {params['final_method']}; "
-              f"K={params['k_daily']}, J={params['k_weekly']}, "
-              f"window={params['window_days']} d, switch={params['switch_len']} slots")
+        print(f"  K={params['k_daily']}, J={params['k_weekly']}, window={params['window_days']} d, "
+              f"switch={params['switch_len']} slots; final={params['final_method']}, "
+              f"deployed={params['deployed']}")
     if "validate" in stages:
-        print("Stage: validate (held-out test period + secondary sensor)")
+        print("Stage: validate (held-out test period + independent sensor)")
         results["val"] = validate(cfg, ctx, params)
     if "performance" in stages:
         print("Stage: performance")
@@ -55,7 +55,9 @@ def main(argv=None) -> None:
     if "reconstruct" in stages:
         print("Stage: reconstruct real gaps")
         val = results.get("val")
-        results["recon"] = reconstruct(cfg, ctx, params, val["primary"] if val else None)
+        summaries = ({cfg.primary: val["primary"], cfg.secondary: val["secondary"]}
+                     if val else None)
+        results["recon"] = reconstruct(cfg, ctx, params, summaries)
     if all(k in results for k in ("val", "perf", "recon")):
         path = write_summary(cfg, ctx, params, results["val"], results["perf"], results["recon"])
         print(f"Summary written to {path}")
