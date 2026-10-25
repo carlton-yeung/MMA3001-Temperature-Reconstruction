@@ -339,7 +339,7 @@ def prepare_sensor(readings: pd.DataFrame, sensor_id: str,
 def train_test_split(frame: pd.DataFrame, train_fraction: float = 0.7) -> int:
     """Return the slot index splitting a series chronologically.
 
-    Slots before the index are used for development (tuning and selection); slots after are
+    Slots before the index are used for training and tuning; slots after are
     held out for testing. A chronological split avoids leaking future
     behaviour into model selection.
     """

@@ -1,43 +1,43 @@
-=== harmonic (all gaps), primary sensor ===
-         84057 function calls (83935 primitive calls) in 1.504 seconds
+=== harmonic (all gaps) ===
+         127705 function calls (127585 primitive calls) in 0.828 seconds
 
    Ordered by: cumulative time
-   List reduced from 305 to 12 due to restriction <12>
+   List reduced from 292 to 12 due to restriction <12>
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-        1    0.000    0.000    1.504    1.504 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\experiments.py:125(<lambda>)
-        1    0.216    0.216    1.503    1.503 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:245(fill_harmonic)
-     1390    0.013    0.000    1.016    0.001 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:212(solve_least_squares)
-     1390    0.912    0.001    1.001    0.001 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\numpy\linalg\_linalg.py:2394(lstsq)
-     1390    0.076    0.000    0.089    0.000 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:233(_bridge)
-     1390    0.004    0.000    0.077    0.000 {method 'mean' of 'numpy.ndarray' objects}
-     1390    0.024    0.000    0.073    0.000 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\numpy\_core\_methods.py:118(_mean)
-     2788    0.051    0.000    0.051    0.000 {method 'reduce' of 'numpy.ufunc' objects}
-     1392    0.004    0.000    0.037    0.000 {method 'sum' of 'numpy.ndarray' objects}
-     1392    0.002    0.000    0.033    0.000 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\numpy\_core\_methods.py:50(_sum)
-     1394    0.033    0.000    0.033    0.000 {method 'copy' of 'numpy.ndarray' objects}
-        1    0.007    0.007    0.027    0.027 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:183(harmonic_design)
+        1    0.000    0.000    0.827    0.827 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/experiments.py:210(<lambda>)
+        1    0.197    0.197    0.827    0.827 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:191(fill_harmonic)
+     2143    0.006    0.000    0.538    0.000 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:170(solve_least_squares)
+     2143    0.484    0.000    0.531    0.000 /usr/local/lib/python3.13/site-packages/numpy/linalg/_linalg.py:2417(lstsq)
+     2143    0.002    0.000    0.033    0.000 {method 'mean' of 'numpy.ndarray' objects}
+     2143    0.011    0.000    0.031    0.000 /usr/local/lib/python3.13/site-packages/numpy/_core/_methods.py:115(_mean)
+     4294    0.021    0.000    0.021    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+     2150    0.020    0.000    0.020    0.000 {method 'copy' of 'numpy.ndarray' objects}
+     2145    0.002    0.000    0.017    0.000 {method 'sum' of 'numpy.ndarray' objects}
+     2145    0.001    0.000    0.015    0.000 /usr/local/lib/python3.13/site-packages/numpy/_core/_methods.py:47(_sum)
+        1    0.003    0.003    0.013    0.013 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:142(harmonic_design)
+     2143    0.006    0.000    0.012    0.000 /usr/local/lib/python3.13/site-packages/numpy/linalg/_linalg.py:201(_commonType)
 
 
 
-=== hybrid, primary sensor ===
-         119 function calls in 0.003 seconds
+=== hybrid ===
+         4282 function calls (4162 primitive calls) in 0.020 seconds
 
    Ordered by: cumulative time
-   List reduced from 56 to 12 due to restriction <12>
+   List reduced from 293 to 12 due to restriction <12>
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-        1    0.000    0.000    0.003    0.003 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\experiments.py:128(<lambda>)
-        1    0.000    0.000    0.003    0.003 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:337(fill_hybrid)
-        1    0.000    0.000    0.003    0.003 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:245(fill_harmonic)
-        1    0.000    0.000    0.001    0.001 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:75(fill_linear)
-        2    0.000    0.000    0.001    0.001 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\methods.py:45(_split)
-        1    0.000    0.000    0.001    0.001 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\numpy\lib\_function_base_impl.py:1505(interp)
-        1    0.000    0.000    0.001    0.001 C:\Users\yeung\Uni\Year 2\Sem 2\GitHub\MMA3001-Temperature-Reconstruction\tempfill\data.py:252(gap_runs)
-        1    0.000    0.000    0.000    0.000 {built-in method numpy._core._multiarray_umath.interp}
-        2    0.000    0.000    0.000    0.000 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\pandas\core\base.py:545(to_numpy)
-        2    0.000    0.000    0.000    0.000 C:\Users\yeung\AppData\Local\Programs\Python\Python310\lib\site-packages\pandas\core\frame.py:4073(__getitem__)
-        3    0.000    0.000    0.000    0.000 {method 'reduce' of 'numpy.ufunc' objects}
-        2    0.000    0.000    0.000    0.000 {method 'sum' of 'numpy.ndarray' objects}
+        1    0.000    0.000    0.020    0.020 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/experiments.py:211(<lambda>)
+        1    0.000    0.000    0.020    0.020 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:401(fill_hybrid)
+        1    0.002    0.002    0.020    0.020 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:191(fill_harmonic)
+        1    0.003    0.003    0.013    0.013 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:142(harmonic_design)
+        4    0.000    0.000    0.006    0.001 /usr/local/lib/python3.13/site-packages/pandas/core/accessor.py:107(_getter)
+        4    0.000    0.000    0.006    0.001 /usr/local/lib/python3.13/site-packages/pandas/core/indexes/accessors.py:91(_delegate_property_get)
+  279/227    0.000    0.000    0.005    0.000 {built-in method builtins.getattr}
+        4    0.000    0.000    0.005    0.001 /usr/local/lib/python3.13/site-packages/pandas/core/indexes/extension.py:70(fget)
+        4    0.002    0.001    0.004    0.001 /usr/local/lib/python3.13/site-packages/pandas/core/arrays/datetimes.py:139(f)
+       15    0.000    0.000    0.004    0.000 /home/claude/MMA3001-Temperature-Reconstruction/tempfill/methods.py:170(solve_least_squares)
+       15    0.003    0.000    0.004    0.000 /usr/local/lib/python3.13/site-packages/numpy/linalg/_linalg.py:2417(lstsq)
+        4    0.002    0.001    0.002    0.001 /usr/local/lib/python3.13/site-packages/pandas/core/arrays/datetimes.py:848(_local_timestamps)
 
 

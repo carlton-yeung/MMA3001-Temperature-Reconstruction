@@ -19,20 +19,11 @@ import pandas as pd  # noqa: E402
 from .data import gap_runs  # noqa: E402
 
 PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
-METHOD_ORDER = ["ffill", "linear", "yesterday", "cubic_spline", "pchip", "harmonic", "hybrid"]
+METHOD_ORDER = ["ffill", "linear", "cubic_spline", "pchip", "harmonic", "hybrid", "boosted"]
 COLOURS = dict(zip(METHOD_ORDER, PALETTE))
-LABELS = {"ffill": "Forward fill", "linear": "Linear", "yesterday": "Same time yesterday",
-          "cubic_spline": "Cubic spline", "pchip": "PCHIP", "harmonic": "Harmonic LSQ",
-          "hybrid": "Hybrid"}
-
-
-def _gap_label(hours: float) -> str:
-    """Readable label for a gap length in hours."""
-    if hours < 1:
-        return f"{hours * 60:.0f} min"
-    if hours < 24:
-        return f"{hours:g} h"
-    return f"{hours / 24:g} d"
+LABELS = {"ffill": "Forward fill", "linear": "Linear", "cubic_spline": "Cubic spline",
+          "pchip": "PCHIP", "harmonic": "Harmonic", "hybrid": "Hybrid",
+          "boosted": "Boosted trees"}
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
 plt.rcParams.update({
@@ -98,83 +89,29 @@ def gap_length_histogram(frames: dict, path: Path) -> Path:
 
 
 def error_vs_gap(summary: pd.DataFrame, path: Path, title: str,
-                 acceptance: float | None = None, metric: str = "MAE",
-                 boundary: float | None = None) -> Path:
-    """Error metric against gap length for each method, with 95% CI bands for MAE.
-
-    Args:
-        summary: Combined summary (one row per method and gap length).
-        acceptance: Draw this horizontal limit (°C).
-        metric: Column to plot (``MAE``, ``P95AE``, ``MaxAE`` ...).
-        boundary: Gap length (hours) where the fully observed design ends;
-            marked with a dotted line.
-    """
-    fig, ax = plt.subplots(figsize=(8.4, 4.8))
+                 acceptance: float | None = None, metric: str = "MAE") -> Path:
+    """Error metric against gap length for each method, with 95% CI bands."""
+    fig, ax = plt.subplots(figsize=(8, 4.6))
     for m in [m for m in METHOD_ORDER if m in set(summary["method"])]:
         g = summary[summary["method"] == m].sort_values("gap_hours")
         ax.plot(g["gap_hours"], g[metric], marker="o", markersize=4.5,
-                color=COLOURS[m], label=LABELS[m],
-                linestyle="--" if m == "hybrid" else "-")
+                color=COLOURS[m], label=LABELS[m])
         if metric == "MAE" and "MAE_lo" in g:
             ax.fill_between(g["gap_hours"], g["MAE_lo"], g["MAE_hi"], color=COLOURS[m],
                             alpha=0.12, linewidth=0)
     if acceptance is not None:
         ax.axhline(acceptance, color=MUTED, linestyle="--", linewidth=1)
-        ax.annotate(f"limit {acceptance} °C", (summary["gap_hours"].min(), acceptance),
+        ax.annotate(f"acceptance {acceptance} °C", (summary["gap_hours"].min(), acceptance),
                     xytext=(2, 3), textcoords="offset points", color=MUTED, fontsize=8)
-    if boundary is not None:
-        ax.axvline(boundary, color=MUTED, linestyle=":", linewidth=1)
-        ax.annotate("fully observed | partially observed", (boundary, 1), xycoords=("data", "axes fraction"),
-                    xytext=(0, -10), textcoords="offset points", ha="center", color=MUTED, fontsize=8)
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ticks = sorted(summary["gap_hours"].unique())
-    ax.set_xticks(ticks, [_gap_label(h) for h in ticks])
+    ticks = [1 / 6, 0.5, 1, 3, 6, 12, 24, 48, 72]
+    ax.set_xticks(ticks, ["10 min", "30 min", "1 h", "3 h", "6 h", "12 h", "1 d", "2 d", "3 d"])
     ax.minorticks_off()
     ax.set_xlabel("Gap length")
     ax.set_ylabel(f"{metric} (°C, log scale)")
     ax.set_title(title, loc="left")
-    ax.legend(ncol=2, fontsize=9, loc="lower right")
-    return _save(fig, path)
-
-
-def design_agreement(agree: pd.DataFrame, path: Path) -> Path:
-    """MAE with 95% CI from the fully vs partially observed designs, per method."""
-    meths = [m for m in METHOD_ORDER if m in set(agree["method"])]
-    hours = sorted(agree["gap_hours"].unique())
-    fig, axes = plt.subplots(1, len(hours), figsize=(4.2 * len(hours), 0.5 * len(meths) + 1.4),
-                             sharey=True, squeeze=False)
-    for ax, h in zip(axes[0], hours):
-        g = agree[agree["gap_hours"] == h].set_index("method")
-        for i, m in enumerate(meths):
-            for dy, d, mk in ((-0.15, "full", "o"), (0.15, "partial", "s")):
-                v, lo, hi = g.loc[m, f"MAE_{d}"], g.loc[m, f"MAE_lo_{d}"], g.loc[m, f"MAE_hi_{d}"]
-                ax.errorbar(v, i + dy, xerr=[[v - lo], [hi - v]], fmt=mk, color=COLOURS[m],
-                            markersize=6, capsize=3, markerfacecolor="white" if d == "partial" else COLOURS[m])
-        ax.set_yticks(range(len(meths)), [LABELS[m] for m in meths])
-        ax.invert_yaxis()
-        ax.set_xlabel("MAE (°C)")
-        ax.set_title(f"{_gap_label(h)} gaps", loc="left")
-    axes[0][0].plot([], [], "o", color=MUTED, label="fully observed")
-    axes[0][0].plot([], [], "s", color=MUTED, markerfacecolor="white", label="partially observed")
-    axes[0][0].legend(loc="lower right", fontsize=8)
-    fig.suptitle("Do the two validation designs agree? (95% CIs)", x=0.01, ha="left", fontsize=11)
-    return _save(fig, path)
-
-
-def gap_count_plot(table: pd.DataFrame, slopes: dict, path: Path) -> Path:
-    """Runtime against number of gaps at fixed series length (log-log)."""
-    fig, ax = plt.subplots(figsize=(6.6, 4))
-    for m in [m for m in METHOD_ORDER if m in set(table["method"])]:
-        g = table[table["method"] == m]
-        ax.plot(g["gaps"], g["seconds"], marker="o", markersize=4.5, color=COLOURS[m],
-                label=f"{LABELS[m]} (slope {slopes[m]:.2f})")
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel("Number of gaps (series length fixed at 64,000 slots)")
-    ax.set_ylabel("Fill time (s)")
-    ax.set_title("Harmonic cost grows with the number of gaps fitted", loc="left")
-    ax.legend(fontsize=9, loc="center right")
+    ax.legend(ncol=2, fontsize=9)
     return _save(fig, path)
 
 
@@ -195,9 +132,9 @@ def example_gap(frame: pd.DataFrame, start: int, gap_len: int, fills: dict,
     for m, filled in fills.items():
         ax.plot(t[in_gap], filled[lo:hi][in_gap], color=COLOURS[m], label=LABELS[m])
     ax.set_ylabel("Temperature (°C)")
-    ax.set_title(f"Example {_gap_label(gap_len / 6)} gap (held-out test period)", loc="left")
+    ax.set_title(f"Example {gap_len / 6:g}-hour gap", loc="left")
     _date_axis(ax, frame["time"].dt.tz)
-    ax.legend(ncol=6, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.2))
+    ax.legend(ncol=6, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.12))
     return _save(fig, path)
 
 
@@ -247,7 +184,7 @@ def error_by_hour(per_gap: pd.DataFrame, frame: pd.DataFrame, gap_len: int,
     ax.set_xticks(range(0, 24, 3), [f"{h:02d}:00" for h in range(0, 24, 3)])
     ax.set_xlabel("Local time the gap starts (3-hour bins)")
     ax.set_ylabel("MAE (°C)")
-    ax.set_title(f"Error depends on when a {_gap_label(gap_len / 6)} gap occurs", loc="left")
+    ax.set_title(f"Error depends on when a {gap_len / 6:g}-hour gap occurs", loc="left")
     ax.legend()
     return _save(fig, path)
 

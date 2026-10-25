@@ -1,12 +1,13 @@
 {
   "vectorisation": {
-    "loop_s": 0.3432446999941021,
-    "vectorised_s": 0.05786419997457415,
-    "speedup": 5.931900901506039,
+    "loop_s": 0.14251845499984483,
+    "vectorised_s": 0.023241827000219928,
+    "speedup": 6.1319815778035105,
     "identical_output": true
   },
-  "gap_count_slopes": {
-    "harmonic": 0.771812078823095,
-    "hybrid": 0.010975030523512933
+  "boosted": {
+    "fit_seconds": 31.431751410999823,
+    "fill_seconds": 0.838125755999954,
+    "train_rows": 78641
   }
 }
