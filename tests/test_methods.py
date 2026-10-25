@@ -10,11 +10,12 @@ import numpy as np
 import pytest
 
 from conftest import make_frame
-from tempfill.methods import (BASIC_METHODS, BoostedFill, fill_cubic_spline, fill_harmonic,
+from tempfill.methods import (BASELINES, fill_cubic_spline, fill_harmonic, fill_harmonic_naive,
                               fill_hybrid, fill_linear, fill_linear_loop, fill_pchip,
-                              harmonic_design, solve_least_squares)
+                              fill_yesterday, harmonic_design, solve_least_squares)
 
-ALL = {**BASIC_METHODS, "hybrid": fill_hybrid}
+ALL = {**BASELINES, "cubic_spline": fill_cubic_spline, "pchip": fill_pchip,
+       "harmonic": fill_harmonic, "hybrid": fill_hybrid}
 
 
 def _midpoint_error(method, omega):
@@ -127,19 +128,40 @@ def test_too_few_observations_raises():
         fill_linear(make_frame([np.nan, 1.0, np.nan]))
 
 
-def test_boosted_fill_runs_and_is_reasonable(daily_frame):
-    rng = np.random.default_rng(0)
+def test_yesterday_exact_on_repeating_day(daily_frame):
+    """A signal that repeats every day is reconstructed exactly from yesterday."""
     f = daily_frame.copy()
-    f["temperature"] += rng.normal(0, 0.05, len(f))
-    model = BoostedFill(max_iter=30).fit(f, (0, len(f)), lengths=(3, 36), n_gaps=10, repeats=1)
+    hour = (f["time"].dt.hour + f["time"].dt.minute / 60).to_numpy()
+    f["temperature"] = 21 + 2 * np.cos(2 * np.pi * hour / 24)
     m = f.copy()
-    m.loc[1000:1035, "temperature"] = np.nan
-    filled = model(m)
-    assert np.isfinite(filled).all()
-    err = np.abs(filled - f["temperature"].to_numpy())[1000:1036].mean()
-    assert err < 0.5
+    m.loc[500:571, "temperature"] = np.nan
+    np.testing.assert_allclose(fill_yesterday(m), f["temperature"], atol=1e-12)
 
 
-def test_boosted_rejects_bad_base():
-    with pytest.raises(ValueError):
-        BoostedFill(base="spline")
+def test_yesterday_looks_further_back_then_falls_back():
+    y = np.arange(4 * 144, dtype=float)
+    m = y.copy()
+    m[300] = np.nan          # yesterday (156) observed -> uses it
+    m[400] = np.nan
+    m[256] = np.nan          # yesterday of 400 missing -> uses 2 days back (112)
+    m[10] = np.nan           # no earlier day -> linear fallback
+    filled = fill_yesterday(make_frame(m))
+    assert filled[300] == y[156]
+    assert filled[400] == y[112]
+    assert filled[10] == pytest.approx(10.0)
+
+
+def test_naive_harmonic_matches_optimised(daily_frame):
+    rng = np.random.default_rng(2)
+    f = daily_frame.copy()
+    f["temperature"] += rng.normal(0, 0.1, len(f))
+    m = f.copy()
+    m.loc[[50, 300, 301, 302], "temperature"] = np.nan
+    m.loc[900:960, "temperature"] = np.nan
+    np.testing.assert_allclose(fill_harmonic_naive(m), fill_harmonic(m), atol=1e-9)
+
+
+def test_trend_centring_does_not_change_result(daily_frame):
+    m = daily_frame.copy()
+    m.loc[700:780, "temperature"] = np.nan
+    np.testing.assert_allclose(fill_harmonic(m, centre_trend=False), fill_harmonic(m), atol=1e-8)

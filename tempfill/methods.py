@@ -5,19 +5,26 @@ columns ``time`` (tz-aware local time) and ``temperature`` (°C, NaN where
 missing). It returns a NumPy array of the same length in which observed
 values are unchanged and every NaN has been filled.
 
-The methods form a ladder from simple to more informed:
+Baselines (what would happen without this project, and the simplest
+alternatives):
 
 ==================  =========================================================
-``ffill``           Baseline: repeat the last observed value.
-``linear``          Baseline: straight line between the readings either side.
+``ffill``           Repeat the last observed value (what a dashboard does).
+``linear``          Straight line between the readings either side.
+``yesterday``       Reading from the same time on the previous day (the
+                    simplest method that uses the daily pattern).
+==================  =========================================================
+
+Methods investigated:
+
+==================  =========================================================
 ``cubic_spline``    Global C2 cubic spline through all observed readings.
 ``pchip``           Shape-preserving piecewise cubic (no overshoot).
 ``harmonic``        Local least-squares fit of daily + weekly Fourier terms,
                     with the residual bridged linearly so the fill meets the
                     readings at both ends of the gap.
-``boosted``         Gradient-boosted trees that learn a correction to the
-                    linear fill from gap context (``BoostedFill``).
-``hybrid``          Linear for short gaps, harmonic for long gaps.
+``hybrid``          Linear for short gaps, harmonic for long gaps (also the
+                    main runtime optimisation of ``harmonic``).
 ==================  =========================================================
 
 Points before the first or after the last observation (edge gaps) are
@@ -28,7 +35,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline, PchipInterpolator
-from sklearn.ensemble import HistGradientBoostingRegressor
 
 from .data import gap_runs
 
@@ -54,13 +60,13 @@ def _hold_edges(out: np.ndarray, y: np.ndarray, obs: np.ndarray) -> np.ndarray:
 
 
 # ----------------------------------------------------------------------------
-# Baselines and classical interpolation
+# Baselines
 # ----------------------------------------------------------------------------
 def fill_ffill(frame: pd.DataFrame) -> np.ndarray:
     """Forward fill: each missing slot takes the last observed value.
 
-    Cost: O(n), no arithmetic. Represents "do nothing clever", the behaviour
-    of many building dashboards.
+    Cost: O(n), no arithmetic. The only method usable *during* a live
+    outage, since it needs no reading after the gap.
     """
     y, obs, _ = _split(frame)
     return _hold_edges(pd.Series(y).ffill().to_numpy(copy=True), y, obs)
@@ -80,7 +86,7 @@ def fill_linear(frame: pd.DataFrame) -> np.ndarray:
 
 
 def fill_linear_loop(frame: pd.DataFrame) -> np.ndarray:
-    """Pure-Python version of ``fill_linear`` used only as a performance baseline.
+    """Pure-Python version of ``fill_linear`` used only as a performance reference.
 
     Gives identical results; exists so the speed-up from vectorisation can
     be measured (see ``tempfill.performance``).
@@ -109,6 +115,41 @@ def fill_linear_loop(frame: pd.DataFrame) -> np.ndarray:
     return out
 
 
+def fill_yesterday(frame: pd.DataFrame, max_days: int = 7) -> np.ndarray:
+    """Fill each missing slot with the reading at the same time on an earlier day.
+
+    Looks back 1 day; if that reading is also missing, 2 days, and so on up
+    to ``max_days``. Slots with no earlier reading (e.g. in the first day)
+    fall back to linear interpolation.
+
+    This baseline uses a completely different source of information from
+    interpolation: the shape of a previous day rather than the readings at
+    the gap edges. It is blind to day-to-day level changes (a warmer day
+    gives a constant offset and a jump at the gap edges) and to weekday vs
+    weekend differences.
+
+    Cost: O(n * max_days) array look-ups, no arithmetic.
+    """
+    y, obs, _ = _split(frame)
+    out = y.copy()
+    todo = ~obs
+    for k in range(1, max_days + 1):
+        if not todo.any():
+            break
+        lag = k * STEPS_PER_DAY
+        src = np.full(len(y), np.nan)
+        src[lag:] = y[:-lag]
+        take = todo & np.isfinite(src)
+        out[take] = src[take]
+        todo &= ~take
+    if todo.any():
+        out[todo] = fill_linear(frame)[todo]
+    return out
+
+
+# ----------------------------------------------------------------------------
+# Classical interpolation
+# ----------------------------------------------------------------------------
 def fill_cubic_spline(frame: pd.DataFrame) -> np.ndarray:
     """Global cubic spline (not-a-knot) through every observed reading.
 
@@ -137,16 +178,16 @@ def fill_pchip(frame: pd.DataFrame) -> np.ndarray:
 
 
 # ----------------------------------------------------------------------------
-# Harmonic (Fourier) regression with residual bridging
+# Harmonic (Fourier) least squares with residual bridging
 # ----------------------------------------------------------------------------
-def harmonic_design(time: pd.Series, k_daily: int = 3, k_weekly: int = 2) -> np.ndarray:
+def harmonic_design(time: pd.Series, k_daily: int = 2, k_weekly: int = 2) -> np.ndarray:
     """Build the least-squares design matrix for daily and weekly cycles.
 
-    Columns: ``1``, ``trend`` (days), then ``cos/sin(2*pi*k*h/24)`` for
-    ``k = 1..k_daily`` and ``cos/sin(2*pi*j*w/168)`` for ``j = 1..k_weekly``,
-    where ``h`` is local hour of day and ``w`` is hour of the week. Local
-    clock time is used because building schedules follow it (including
-    daylight saving).
+    Columns: ``1``, ``trend`` (days since ``time[0]``), then
+    ``cos/sin(2*pi*k*h/24)`` for ``k = 1..k_daily`` and
+    ``cos/sin(2*pi*j*w/168)`` for ``j = 1..k_weekly``, where ``h`` is local
+    hour of day and ``w`` is hour of the week. Local clock time is used
+    because building schedules follow it (including daylight saving).
 
     Args:
         time: tz-aware timestamps, one per slot.
@@ -156,6 +197,7 @@ def harmonic_design(time: pd.Series, k_daily: int = 3, k_weekly: int = 2) -> np.
     Returns:
         Array of shape ``(n, 2 + 2*k_daily + 2*k_weekly)``.
     """
+    time = pd.Series(time).reset_index(drop=True)
     hour = (time.dt.hour + time.dt.minute / 60 + time.dt.second / 3600).to_numpy()
     week_hour = time.dt.dayofweek.to_numpy() * 24 + hour
     days = (time - time.iloc[0]).dt.total_seconds().to_numpy() / 86400
@@ -175,8 +217,8 @@ def solve_least_squares(A: np.ndarray, b: np.ndarray, solver: str = "lstsq") -> 
         b: Observations, shape ``(m,)``.
         solver: ``"lstsq"`` (SVD-based ``numpy.linalg.lstsq``; numerically
             stable, about 2mp^2 + 11p^3 flops) or ``"normal"`` (normal
-            equations ``A^T A c = A^T b`` via Cholesky; about mp^2 + p^3/3
-            flops, faster, but squares the condition number of ``A``).
+            equations ``A^T A c = A^T b``; about mp^2 + p^3/3 flops, faster,
+            but squares the condition number of ``A``).
 
     Returns:
         Coefficient vector of length ``p``.
@@ -188,9 +230,21 @@ def solve_least_squares(A: np.ndarray, b: np.ndarray, solver: str = "lstsq") -> 
     raise ValueError(f"Unknown solver {solver!r}")
 
 
-def fill_harmonic(frame: pd.DataFrame, k_daily: int = 3, k_weekly: int = 2,
+def _bridge(pred: np.ndarray, resid: np.ndarray, s: int, L: int, lo: int, n: int) -> np.ndarray:
+    """Model prediction inside a gap plus the linearly bridged edge residuals."""
+    r_left = resid[s - 1 - lo] if s > 0 else np.nan
+    r_right = resid[s + L - lo] if s + L < n else np.nan
+    if np.isnan(r_left):
+        r_left = r_right
+    if np.isnan(r_right):
+        r_right = r_left
+    frac = np.arange(1, L + 1) / (L + 1)
+    return pred[s - lo:s + L - lo] + (1 - frac) * r_left + frac * r_right
+
+
+def fill_harmonic(frame: pd.DataFrame, k_daily: int = 2, k_weekly: int = 2,
                   window_days: float = 7.0, solver: str = "lstsq",
-                  design: np.ndarray | None = None, min_len: int = 0) -> np.ndarray:
+                  min_len: int = 0, centre_trend: bool = True) -> np.ndarray:
     """Fill each gap with a local Fourier model anchored to the gap edges.
 
     For every gap:
@@ -207,8 +261,11 @@ def fill_harmonic(frame: pd.DataFrame, k_daily: int = 3, k_weekly: int = 2,
     A gap whose window has too few readings (fewer than 3 per parameter)
     falls back to linear interpolation.
 
-    Cost per gap: building and solving an ``m x p`` least-squares problem
-    with ``m`` about ``2 * window_days * 144`` and ``p = 2 + 2(k_daily+k_weekly)``.
+    The design matrix is built once for the whole series and sliced per gap
+    (compare ``fill_harmonic_naive``).
+
+    Cost per fitted gap: an ``m x p`` least-squares problem with
+    ``m`` about ``2 * window_days * 144`` and ``p = 2 + 2(k_daily+k_weekly)``.
 
     Args:
         frame: Series to fill (see module docstring).
@@ -216,9 +273,10 @@ def fill_harmonic(frame: pd.DataFrame, k_daily: int = 3, k_weekly: int = 2,
         k_weekly: Weekly harmonics (weekday/weekend difference).
         window_days: Half-width of the fitting window (days).
         solver: Least-squares solver, see ``solve_least_squares``.
-        design: Optional precomputed ``harmonic_design`` (for speed).
         min_len: Gaps of ``min_len`` slots or fewer are left linear without
             fitting (used by ``fill_hybrid``; saves one solve per short gap).
+        centre_trend: Subtract the window mean from the trend column before
+            fitting. Improves conditioning (see ``performance.solver_comparison``).
 
     Returns:
         Filled temperature array (°C).
@@ -229,7 +287,7 @@ def fill_harmonic(frame: pd.DataFrame, k_daily: int = 3, k_weekly: int = 2,
     long_gap = lengths > min_len
     if not long_gap.any():
         return out
-    X = harmonic_design(frame["time"], k_daily, k_weekly) if design is None else design
+    X = harmonic_design(frame["time"], k_daily, k_weekly)
     n, p = X.shape
     w = int(window_days * STEPS_PER_DAY)
 
@@ -239,181 +297,57 @@ def fill_harmonic(frame: pd.DataFrame, k_daily: int = 3, k_weekly: int = 2,
         if m.sum() < 3 * p:
             continue  # keep linear fallback
         Xw = X[lo:hi].copy()
-        Xw[:, 1] -= Xw[:, 1].mean()  # centre the trend column for conditioning
+        if centre_trend:
+            Xw[:, 1] -= Xw[:, 1].mean()
         coef = solve_least_squares(Xw[m], y[lo:hi][m], solver)
         pred = Xw @ coef
-        resid = y[lo:hi] - pred
-        r_left = resid[s - 1 - lo] if s > 0 else np.nan
-        r_right = resid[s + L - lo] if s + L < n else np.nan
-        if np.isnan(r_left):
-            r_left = r_right
-        if np.isnan(r_right):
-            r_right = r_left
-        frac = np.arange(1, L + 1) / (L + 1)
-        out[s:s + L] = pred[s - lo:s + L - lo] + (1 - frac) * r_left + frac * r_right
+        out[s:s + L] = _bridge(pred, y[lo:hi] - pred, s, L, lo, n)
     return out
 
 
-# ----------------------------------------------------------------------------
-# Machine learning: gradient-boosted correction to the linear fill
-# ----------------------------------------------------------------------------
-FEATURES = ["log_gap_len", "frac", "steps_from_left", "steps_to_right",
-            "hour_sin", "hour_cos", "weekend", "left", "right",
-            "slope_left", "slope_right", "harmonic_minus_linear"]
-"""Names of the features used by ``BoostedFill`` (for reporting)."""
+def fill_harmonic_naive(frame: pd.DataFrame, k_daily: int = 2, k_weekly: int = 2,
+                        window_days: float = 7.0) -> np.ndarray:
+    """Unoptimised reference version of ``fill_harmonic``.
 
-
-def gap_features(frame: pd.DataFrame, k_daily: int = 3, k_weekly: int = 2,
-                 window_days: float = 7.0):
-    """Describe every missing slot by its gap context.
-
-    Args:
-        frame: Series with gaps.
-        k_daily, k_weekly, window_days: Settings for the harmonic feature.
-
-    Returns:
-        ``(idx, F, linear, harmonic)`` - indices of missing slots, a feature
-        matrix (columns ``FEATURES``; NaN where a neighbour is unavailable,
-        which histogram gradient boosting handles natively) and the full
-        linear and harmonic fills.
+    Rebuilds the design matrix (all the sine and cosine evaluations) from
+    the timestamps of every gap's window, and fits every gap including
+    single missed readings. Written deliberately as the "before" case for
+    the optimisation study; results match ``fill_harmonic`` exactly.
     """
     y, obs, _ = _split(frame)
-    linear = fill_linear(frame)
-    harmonic = fill_harmonic(frame, k_daily, k_weekly, window_days)
-    starts, lengths = gap_runs(~obs)
-    gid = np.repeat(np.arange(len(starts)), lengths)
-    s, L = starts[gid], lengths[gid]
-    idx = s + np.concatenate([np.arange(n) for n in lengths]) if len(s) else s
+    out = fill_linear(frame)
     n = len(y)
-
-    def value_at(i):
-        ok = (i >= 0) & (i < n)
-        v = np.full(len(i), np.nan)
-        v[ok] = y[i[ok]]
-        return v
-
-    left, right = value_at(s - 1), value_at(s + L)
-    hour = (frame["time"].dt.hour + frame["time"].dt.minute / 60).to_numpy()[idx]
-    F = np.column_stack([
-        np.log(L), (idx - s + 1) / (L + 1), idx - s + 1, s + L - idx,
-        np.sin(2 * np.pi * hour / 24), np.cos(2 * np.pi * hour / 24),
-        frame["time"].dt.dayofweek.to_numpy()[idx] >= 5,
-        left, right,
-        (left - value_at(s - 7)) / 6, (value_at(s + L + 6) - right) / 6,
-        harmonic[idx] - linear[idx],
-    ])
-    return idx, F, linear, harmonic
+    w = int(window_days * STEPS_PER_DAY)
+    times = frame["time"]
+    for s, L in zip(*gap_runs(~obs)):
+        lo, hi = max(0, s - w), min(n, s + L + w)
+        # Same columns as harmonic_design on the full series: rebuild then
+        # shift the trend so it matches the full-series origin.
+        Xw = harmonic_design(times.iloc[lo:hi], k_daily, k_weekly)
+        m = obs[lo:hi]
+        if m.sum() < 3 * Xw.shape[1]:
+            continue
+        Xw[:, 1] -= Xw[:, 1].mean()
+        coef = solve_least_squares(Xw[m], y[lo:hi][m])
+        pred = Xw @ coef
+        out[s:s + L] = _bridge(pred, y[lo:hi] - pred, s, L, lo, n)
+    return out
 
 
-class BoostedFill:
-    """Gradient-boosted trees that predict the error of a base fill.
-
-    The model learns ``truth - base_fill`` from synthetic gaps cut out of a
-    training period, using the features in ``gap_features`` (gap length,
-    position in the gap, time of day, weekend flag, edge values and slopes,
-    and the harmonic model's opinion). Predicting a *correction* rather than
-    the temperature itself means a poorly trained model degrades towards the
-    base method instead of producing absurd values.
-
-    Each training gap gets equal total weight (rows weighted by
-    ``1 / gap_len``). Without this, a 3-day gap contributes 432 times more
-    rows than a 10-minute gap and the model neglects short gaps.
-
-    Args:
-        base: ``"linear"`` or ``"harmonic"`` - the fill being corrected.
-        max_iter: Boosting iterations (upper bound; early stopping is used).
-        learning_rate: Shrinkage per iteration.
-        max_leaf_nodes: Tree complexity.
-        random_state: Seed for reproducibility.
-        k_daily, k_weekly, window_days: Harmonic feature settings.
-
-    Example:
-        >>> model = BoostedFill().fit(train_frame, train_slots)   # doctest: +SKIP
-        >>> filled = model(frame_with_gaps)                         # doctest: +SKIP
-    """
-
-    def __init__(self, base: str = "harmonic", max_iter: int = 400, learning_rate: float = 0.05,
-                 max_leaf_nodes: int = 31, random_state: int = 0,
-                 k_daily: int = 3, k_weekly: int = 2, window_days: float = 7.0):
-        if base not in ("linear", "harmonic"):
-            raise ValueError("base must be 'linear' or 'harmonic'")
-        self.base = base
-        self.harmonic_kw = dict(k_daily=k_daily, k_weekly=k_weekly, window_days=window_days)
-        self.random_state = random_state
-        self.model = HistGradientBoostingRegressor(
-            max_iter=max_iter, learning_rate=learning_rate, max_leaf_nodes=max_leaf_nodes,
-            early_stopping=True, validation_fraction=0.15, random_state=random_state)
-        self.n_train_rows_ = 0
-
-    def fit(self, frame: pd.DataFrame, region: tuple[int, int],
-            lengths=(1, 3, 6, 18, 36, 72, 144, 288, 432), n_gaps: int = 30,
-            repeats: int = 4) -> "BoostedFill":
-        """Train on synthetic gaps placed inside ``region`` of ``frame``.
-
-        Args:
-            frame: Series providing ground truth.
-            region: ``(start_slot, end_slot)`` the training gaps must lie in
-                (the training period; never the test period).
-            lengths: Gap lengths (slots) to simulate.
-            n_gaps: Gaps per length per repeat.
-            repeats: Independent masking repeats.
-
-        Returns:
-            ``self`` (fitted).
-        """
-        from .validation import apply_gaps, sample_gaps  # avoid circular import
-
-        rng = np.random.default_rng(self.random_state)
-        observed = frame["temperature"].notna().to_numpy()
-        truth = frame["temperature"].to_numpy()
-        Fs, targets, weights = [], [], []
-        for _ in range(repeats):
-            for L in lengths:
-                starts = sample_gaps(observed, L, n_gaps, rng, region)
-                if len(starts) == 0:
-                    continue
-                masked, mask = apply_gaps(frame, starts, L)
-                idx, F, linear, harmonic = gap_features(masked, **self.harmonic_kw)
-                base = linear if self.base == "linear" else harmonic
-                keep = mask[idx]  # only synthetic-gap slots with a real reading
-                Fs.append(F[keep])
-                targets.append(truth[idx[keep]] - base[idx[keep]])
-                weights.append(np.full(keep.sum(), 1.0 / L))
-        X, t = np.vstack(Fs), np.concatenate(targets)
-        self.n_train_rows_ = len(t)
-        self.model.fit(X, t, sample_weight=np.concatenate(weights))
-        return self
-
-    def __call__(self, frame: pd.DataFrame) -> np.ndarray:
-        """Fill every gap in ``frame`` using the fitted model."""
-        idx, F, linear, harmonic = gap_features(frame, **self.harmonic_kw)
-        base = linear if self.base == "linear" else harmonic
-        out = base.copy()
-        if len(idx):
-            out[idx] = base[idx] + self.model.predict(F)
-        y, obs, _ = _split(frame)
-        return _hold_edges(np.where(obs, y, out), y, obs)
-
-
-# ----------------------------------------------------------------------------
-# Hybrid and registry
-# ----------------------------------------------------------------------------
 def fill_hybrid(frame: pd.DataFrame, switch_len: int = 6, **harmonic_kw) -> np.ndarray:
     """Linear interpolation for gaps up to ``switch_len`` slots, harmonic above.
 
-    Short gaps are dominated by sensor noise and quantisation (0.1 °C), where
-    linear is already near-optimal and cheapest; long gaps need the daily
-    cycle that only the harmonic model supplies. ``switch_len`` is chosen on
-    the training period (see ``tempfill.experiments``).
+    Short gaps are dominated by sensor noise and the 0.1 °C quantisation,
+    where linear is already as good as the harmonic model and needs no
+    least-squares fit; long gaps need the daily cycle that only the harmonic
+    model supplies. ``switch_len`` is chosen on development data only (see
+    ``validation.choose_switch``).
     """
     return fill_harmonic(frame, min_len=switch_len, **harmonic_kw)
 
 
-BASIC_METHODS = {
-    "ffill": fill_ffill,
-    "linear": fill_linear,
-    "cubic_spline": fill_cubic_spline,
-    "pchip": fill_pchip,
-    "harmonic": fill_harmonic,
-}
-"""Methods that need no training, keyed by the name used in results tables."""
+BASELINES = {"ffill": fill_ffill, "linear": fill_linear, "yesterday": fill_yesterday}
+"""Baseline methods, keyed by the name used in results tables."""
+
+COMPLEXITY_ORDER = ["ffill", "linear", "yesterday", "pchip", "cubic_spline", "harmonic", "hybrid"]
+"""Methods from simplest to most complex; used to break ties in favour of simplicity."""

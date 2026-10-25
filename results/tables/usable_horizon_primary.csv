@@ -1,0 +1,8 @@
+method,usable_horizon_h
+cubic_spline,3.0
+ffill,2.0
+harmonic,12.0
+hybrid,12.0
+linear,4.0
+pchip,6.0
+yesterday,6.0

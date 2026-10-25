@@ -129,7 +129,7 @@ def scaling(methods: dict, sizes=(4_000, 16_000, 64_000, 256_000, 1_024_000),
     return times, pd.DataFrame(exps)
 
 
-def solver_comparison(frame: pd.DataFrame, k_daily: int = 3, k_weekly: int = 2,
+def solver_comparison(frame: pd.DataFrame, k_daily: int = 2, k_weekly: int = 2,
                       window_days: float = 7.0, repeats: int = 50) -> pd.DataFrame:
     """Compare least-squares solvers and the effect of centring the trend.
 
@@ -163,6 +163,63 @@ def solver_comparison(frame: pd.DataFrame, k_daily: int = 3, k_weekly: int = 2,
     return pd.DataFrame(rows)
 
 
+def gap_count_scaling(method, n: int = 64_000,
+                      fractions=(0.01, 0.02, 0.05, 0.1, 0.2), repeats: int = 3) -> tuple[pd.DataFrame, float]:
+    """Runtime against the number of gaps, at fixed series length.
+
+    Tests the cost model of the harmonic method: one least-squares fit per
+    gap, so time should grow in proportion to the number of gaps (slope 1
+    on a log-log plot) rather than with series length.
+
+    Args:
+        method: Fill function to time.
+        n: Fixed series length (slots).
+        fractions: Probabilities of a single slot being missing.
+        repeats: Timing repeats.
+
+    Returns:
+        ``(table, slope)`` - (missing_fraction, gaps, seconds, us_per_gap)
+        rows, and the fitted log-log slope of time against gap count.
+    """
+    rows = []
+    for f in fractions:
+        frame = synthetic_frame(n, missing_fraction=f)
+        n_gaps = len(gap_runs(frame["temperature"].isna().to_numpy())[0])
+        sec = time_call(method, frame, repeats=repeats)
+        rows.append({"missing_fraction": f, "gaps": n_gaps, "seconds": sec,
+                     "us_per_gap": 1e6 * sec / n_gaps})
+    t = pd.DataFrame(rows)
+    slope = float(np.polyfit(np.log(t["gaps"]), np.log(t["seconds"]), 1)[0])
+    return t, slope
+
+
+def optimisation_steps(frame: pd.DataFrame, steps: dict, reference: str,
+                       repeats: int = 3) -> pd.DataFrame:
+    """Time successive versions of a method and check they agree.
+
+    Args:
+        frame: Series to fill (its real gaps are the workload).
+        steps: Ordered dict of label to fill function, from the unoptimised
+            reference to the final version.
+        reference: Label of the version whose output the others are
+            compared against.
+
+    Returns:
+        DataFrame with ``version``, ``seconds``, ``speedup`` (vs the first
+        version), ``peak_MB`` and ``max_diff_C`` (largest difference from
+        the reference output, °C).
+    """
+    ref = steps[reference](frame)
+    rows, t0 = [], None
+    for label, func in steps.items():
+        sec = time_call(func, frame, repeats=repeats)
+        t0 = sec if t0 is None else t0
+        rows.append({"version": label, "seconds": sec, "speedup": t0 / sec,
+                     "peak_MB": peak_memory_mb(func, frame),
+                     "max_diff_C": float(np.abs(func(frame) - ref).max())})
+    return pd.DataFrame(rows)
+
+
 def vectorisation_speedup(frame: pd.DataFrame, loop_func, vec_func, repeats: int = 3) -> dict:
     """Time a pure-Python loop against its vectorised equivalent.
 
@@ -187,7 +244,7 @@ def profile_call(func, *args, top: int = 12, **kwargs) -> str:
     return buf.getvalue()
 
 
-def flop_estimates(frame: pd.DataFrame, k_daily: int = 3, k_weekly: int = 2,
+def flop_estimates(frame: pd.DataFrame, k_daily: int = 2, k_weekly: int = 2,
                    window_days: float = 7.0, switch_len: int = 6) -> pd.DataFrame:
     """Analytical floating-point operation counts for filling ``frame``'s gaps.
 
@@ -212,6 +269,8 @@ def flop_estimates(frame: pd.DataFrame, k_daily: int = 3, k_weekly: int = 2,
     m = 2 * window_days * STEPS_PER_DAY + lengths
 
     def harmonic_flops(sel):
+        if not sel.any():
+            return 0.0  # no gap is fitted, so the design matrix is never built
         mm = m[sel]
         return float((2 * mm * p**2 + 11 * p**3 + 2 * mm * p).sum() + 20 * n * p)
 

@@ -1,44 +1,41 @@
 {
-  "k_daily": 2,
-  "k_weekly": 2,
-  "window_days": 7.0,
+  "k_daily": 6,
+  "k_weekly": 0,
+  "window_days": 3.0,
   "switch_len": 6,
-  "final_method": "hybrid",
-  "selection_scores": [
-    {
-      "method": "boosted",
-      "mean_MAE": 0.8319,
-      "seconds": 0.8377
-    },
+  "best_single": "harmonic",
+  "hybrid_adopted_on_accuracy": false,
+  "final_method": "harmonic",
+  "hybrid_accuracy_matches_harmonic": true,
+  "deployed": "hybrid",
+  "dev_scores": [
     {
       "method": "cubic_spline",
-      "mean_MAE": 2.4507,
-      "seconds": 0.0031
+      "mean_dev_MAE": 0.4481
     },
     {
       "method": "ffill",
-      "mean_MAE": 1.5687,
-      "seconds": 0.0007
+      "mean_dev_MAE": 0.475
     },
     {
       "method": "harmonic",
-      "mean_MAE": 0.7401,
-      "seconds": 0.793
+      "mean_dev_MAE": 0.2045
     },
     {
       "method": "hybrid",
-      "mean_MAE": 0.7402,
-      "seconds": 0.0221
+      "mean_dev_MAE": 0.2036
     },
     {
       "method": "linear",
-      "mean_MAE": 1.1118,
-      "seconds": 0.0006
+      "mean_dev_MAE": 0.2778
     },
     {
       "method": "pchip",
-      "mean_MAE": 1.0979,
-      "seconds": 0.0023
+      "mean_dev_MAE": 0.2682
+    },
+    {
+      "method": "yesterday",
+      "mean_dev_MAE": 0.4793
     }
   ]
 }
